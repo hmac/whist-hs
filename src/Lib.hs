@@ -69,6 +69,7 @@ suit (Card suit _) = suit
 cardFromPlay :: Play -> Card
 cardFromPlay (Play card player) = card
 
+-- TODO: remove this?
 -- Returns the highest Play of a specific suit from a list of Plays
 highest :: [Play] -> Suit -> Maybe Play
 highest plays suit = case filterSuit suit plays of
