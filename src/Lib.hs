@@ -9,7 +9,11 @@ data Suit   = Spade | Heart | Diamond | Club deriving (Show, Read, Eq, Enum, Bou
 data Number = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King | Ace
   deriving (Show, Read, Eq, Enum, Bounded, Ord)
 
+-- A Trump is just a particular suit
+type Trump = Suit
+
 -- A Play is a card played by a specific person
+-- TODO: embed the trump suit into Play
 data Play = Play Card Player deriving (Show, Eq)
 
 instance Ord Play where
@@ -61,6 +65,10 @@ readCard (s:n) = liftM2 Card (readSuit s) (readNum n)
 suit :: Card -> Suit
 suit (Card suit _) = suit
 
+-- TODO: make nicer
+cardFromPlay :: Play -> Card
+cardFromPlay (Play card player) = card
+
 -- Returns the highest Play of a specific suit from a list of Plays
 highest :: [Play] -> Suit -> Maybe Play
 highest plays suit = case filterSuit suit plays of
@@ -75,13 +83,15 @@ filterSuit suit ps = filter (\ (Play (Card s _) _) -> s == suit) ps
 -- Checks that the card is in the player's hand
 -- Checks that the player is following suit if they can
 -- Checks that the player is trumping if they have trumps and can't follow suit
-validPlay :: Play -> Hand -> Suit -> Card -> Bool
-validPlay (Play card _) (Hand _ hand) trumps cardLed  
+validPlay :: Play -> Hand -> Trump -> [Play] -> Bool
+validPlay (Play card _) (Hand _ hand) trumps cardsPlayed  
   | not (any (elem card) [hand]) = False
   | and [ canFollowSuit, (not followingSuit) ] = False
   | and [ (not canFollowSuit), (not trump), hasTrumps ] = False
   | otherwise = True
   where trump = (suit card) == trumps
         hasTrumps = any (\c -> (suit c) == trumps) hand
-        followingSuit = (suit card) == (suit cardLed)
-        canFollowSuit = any (\c -> (suit c) == (suit cardLed)) hand
+        suitLed = suit (cardFromPlay $ head cardsPlayed)
+        isLeading = null cardsPlayed
+        followingSuit = isLeading || (suit card) == suitLed
+        canFollowSuit = isLeading || any (\c -> (suit c) == suitLed) hand

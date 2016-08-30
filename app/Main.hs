@@ -20,9 +20,10 @@ main = do
   let card = readCard (head sCard)
   let hand = fmap (Hand player) (mapM readCard sHand)
   let trumps = readSuit (head (head sTrumps))
+  let cardsPlayed = Just []
   let cardLed = readCard (head sCardLed)
   let play = fmap (\c -> Play c player) card
-  let result = liftM4 validPlay play hand trumps cardLed
+  let result = liftM4 validPlay play hand trumps cardsPlayed
 
   case result of
     Just b -> (putStrLn . show) b
