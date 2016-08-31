@@ -88,7 +88,7 @@ validPlay :: Play -> Hand -> Trump -> [Play] -> Bool
 validPlay (Play card _) (Hand _ hand) trumps cardsPlayed  
   | not (any (elem card) [hand]) = False
   | and [ canFollowSuit, (not followingSuit) ] = False
-  | and [ (not canFollowSuit), (not trump), hasTrumps ] = False
+  | and [ (not canFollowSuit), hasTrumps, (not trump) ] = False
   | otherwise = True
   where trump = (suit card) == trumps
         hasTrumps = any (\c -> (suit c) == trumps) hand
