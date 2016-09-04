@@ -4,7 +4,10 @@ import Lib
 
 -- A trick is a completed sequence of plays
 -- It always has a winner
-data Trick = Trick [Play] Trump deriving (Show, Eq, Ord)
+data Trick = Trick
+  { plays :: [Play]
+  , trump :: Trump
+  } deriving (Show, Eq, Ord)
 
 -- A round is a series of tricks
 data Round = Round [Trick]
@@ -32,3 +35,13 @@ instance Winnable Round where
 
 class Winnable a where
   winner :: a -> Player
+
+makePlay :: Trick -> Hand -> Play -> Trick
+-- ensure hand belongs to same player as play
+-- ensure player has not already played in this trick
+-- ensure play is valid
+makePlay trick (Hand p1 _) (Play _ p2) | p1 /= p2 = trick
+makePlay trick@(Trick plays trump) hand play@(Play _ player)
+  | elem player (map (\(Play _ p) -> p) plays) = trick
+  | not (validPlay play hand trump plays) = trick
+makePlay (Trick plays trump) _ play = Trick (play:plays) trump
