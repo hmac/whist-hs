@@ -4,66 +4,26 @@ import System.Environment
 import Control.Monad
 import Data.List
 
-data Card   = Card Suit Number deriving (Show, Read, Eq, Ord)
-data Suit   = Spade | Heart | Diamond | Club deriving (Show, Read, Eq, Enum, Bounded, Ord)
-data Number = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King | Ace
-  deriving (Show, Read, Eq, Enum, Bounded, Ord)
+import Card (Card (Card), Suit, suit)
 
--- A Trump is just a particular suit
+
 type Trump = Suit
 
--- A Play is a card played by a specific person
--- TODO: embed the trump suit into Play
+-- TODO: embed the trump suit into Play?
 data Play = Play Card Player deriving (Show, Eq)
+
+data Round = Round [Trick] deriving (Show)
+
+data Game = Game [Round] deriving (Show)
+
 
 instance Ord Play where
   compare (Play c1 _) (Play c2 _) = compare c1 c2
 
--- A Player represents someone playing the game
 data Player = Player String deriving (Show, Eq)
 
--- A Hand represents a set of cards belonging to one player (their 'hand')
-data Hand = Hand Player [Card]
-  deriving (Show)
+data Hand = Hand Player [Card] deriving (Show)
 
--- Lookup table for numbers
--- Uses String because "10" is two chars
-numberList :: [(String, Number)]
-numberList =  [("2", Two)
-            ,("3", Three)
-            ,("4", Four)
-            ,("5", Five)
-            ,("6", Six)
-            ,("7", Seven)
-            ,("8", Eight)
-            ,("9", Nine)
-            ,("10", Ten)
-            ,("J", Jack)
-            ,("Q", Queen)
-            ,("K", King)
-            ,("A", Ace)
-            ]
-
--- Lookup table for suits
-suitList :: [(Char, Suit)]
-suitList = [
-            ('C', Club),
-            ('D', Diamond),
-            ('H', Heart),
-            ('S', Spade)
-           ]
-
-readNum :: String -> Maybe Number
-readNum s = lookup s numberList
-
-readSuit :: Char -> Maybe Suit
-readSuit s = lookup s suitList
-
-readCard :: String -> Maybe Card
-readCard (s:n) = liftM2 Card (readSuit s) (readNum n)
-
-suit :: Card -> Suit
-suit (Card suit _) = suit
 
 -- TODO: make nicer
 cardFromPlay :: Play -> Card
@@ -96,3 +56,41 @@ validPlay (Play card _) (Hand _ hand) trumps cardsPlayed
         isLeading = null cardsPlayed
         followingSuit = isLeading || (suit card) == suitLed
         canFollowSuit = isLeading || any (\c -> (suit c) == suitLed) hand
+
+-- A trick is a completed sequence of plays
+-- It always has a winner
+data Trick = Trick
+  { plays :: [Play]
+  , trump :: Trump
+  } deriving (Show, Eq, Ord)
+
+-- Returns the play that wins the trick
+-- This should be either:
+--   the highest trump, if there are any
+--   the highest card
+winningPlay :: Trick -> Play
+winningPlay (Trick plays trump) = case filterSuit trump plays of
+                               [] -> maximum plays
+                               trumps -> maximum trumps
+
+instance Winnable Trick where
+  winner trick = case winningPlay trick of
+               (Play _ player) -> player
+
+
+instance Winnable Round where
+  -- The winner of a round is the player with the most tricks
+  -- Note: This is NOT the same as the player with the most points!
+
+class Winnable a where
+  winner :: a -> Player
+
+makePlay :: Trick -> Hand -> Play -> Trick
+-- ensure hand belongs to same player as play
+-- ensure player has not already played in this trick
+-- ensure play is valid
+makePlay trick (Hand p1 _) (Play _ p2) | p1 /= p2 = trick
+makePlay trick@(Trick plays trump) hand play@(Play _ player)
+  | elem player (map (\(Play _ p) -> p) plays) = trick
+  | not (validPlay play hand trump plays) = trick
+makePlay (Trick plays trump) _ play = Trick (play:plays) trump
