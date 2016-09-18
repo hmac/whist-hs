@@ -7,9 +7,7 @@ import Control.Monad
 import Data.List
 import Data.Aeson
 
--- import Card (Card (Card), Suit, suit)
 import Card
-
 
 type Trump = Suit
 
@@ -33,6 +31,22 @@ data Game = Game
   { rounds :: [Round]
   , players :: [Player]
   } deriving (Show)
+
+-- State changes:
+-- Create game with set number of players
+-- ROUND BEGIN
+--  Choose dealer
+--  Deal
+--  Choose trumps
+--  TRICK BEGIN
+--   Players make plays
+--  TRICK END
+-- ROUND END
+--
+-- Maybe you only need three states:
+-- round_start
+-- choose_trumps
+-- trick_start
 
 instance Ord Play where
   compare (Play c1 _) (Play c2 _) = compare c1 c2
