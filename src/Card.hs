@@ -55,3 +55,5 @@ instance ToSuit String where
 
 instance ToSuit Char where
   toSuit c = lookup c suitList
+
+shuffledDeck = "?"

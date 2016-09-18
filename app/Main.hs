@@ -14,13 +14,21 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef, atomicModifyIORef')
 
 main :: IO ()
 main = do
-  game <- newIORef $ Game { rounds = [], players = [] }
+  game <- newIORef $ nullGame
   serve game
 
+-- API:
+-- To start a new game, POST to /game
+-- passing player names as a parameter
 serve :: IORef Game -> IO ()
 serve game = scotty 3000 $ do
   get "/card/:card" $ param "card" >>= (json. toCard)
   get "/game" $ liftIO (readIORef game) >>= json
+  post "/game" $ do
+    playerNames <- param "players" :: ActionM String
+    let players = words playerNames
+    newGame <- liftIO $ writeIORef game (Game [] [])
+    json players
 
   post "/player" $ do
     name <- param "name"
@@ -50,3 +58,17 @@ addPlay play (Game (round@(Round (trick:ts) hs):rs) players) = Game (newRound:rs
   where newRound = Round (newTrick:ts) hs
         newTrick = makePlay trick hand play
         hand = currentHand (getPlayPlayer play) round
+
+nullGame :: Game
+nullGame = Game [] []
+
+newGame :: [Player] -> Game
+newGame players = Game [round] players
+  where round = Round [] hands
+        cards = deal 7 (length players)
+        hands = [] -- TODO: implement this
+
+deal size number = deal_ size number [] shuffledDeck
+deal_ size 0 acc deck = acc
+deal_ size number acc deck = deal_ size (number - 1) ((take size deck):acc) (drop size deck)
+
