@@ -1,37 +1,52 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import Lib
-import Card (toCard, toSuit)
+import Card
 import System.Environment 
 import Data.List
 import Control.Monad
+import Control.Monad.Trans (lift, liftIO)
+import Web.Scotty
+import Data.Text.Lazy (pack, unpack)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef, atomicModifyIORef')
 
 main :: IO ()
 main = do
-  args <- getArgs
+  game <- newIORef $ Game { rounds = [], players = [] }
+  serve game
 
-  let sCard = extractArgs args "-p"
-  let sHand = extractArgs args "-h"
-  let sTrumps = extractArgs args "-t"
-  let sCardLed = extractArgs args "-l"
-  let playerName = extractArgs args "-n"
+serve :: IORef Game -> IO ()
+serve game = scotty 3000 $ do
+  get "/card/:card" $ param "card" >>= (json. toCard)
+  get "/game" $ liftIO (readIORef game) >>= json
 
-  -- TODO: handle arguments not being given at runtime
-  let player = Player (head playerName)
-  let card = toCard (head sCard)
-  let hand = fmap (Hand player) (mapM toCard sHand)
-  let trumps = toSuit (head (head sTrumps))
-  let cardsPlayed = Just []
-  let cardLed = toCard (head sCardLed)
-  let play = fmap (\c -> Play c player) card
-  let result = liftM4 validPlay play hand trumps cardsPlayed
+  post "/player" $ do
+    name <- param "name"
+    let player = Player name
+    newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlayer player g), (addPlayer player g)))
+    json newGame
+  post "/play" $ do
+    cardString <- param "card"
+    playerString <- param "player"
+    let player = Player playerString
+    case toCard cardString of
+      Just card -> do
+        let play = Play card player
+        newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlay play g), (addPlay play g)))
+        json newGame
 
-  case result of
-    Just b -> (putStrLn . show) b
-    otherwise -> putStrLn "error"
+addPlayer :: Player -> Game -> Game
+-- for now, we make a fake hand for the player
+addPlayer p (Game rounds players) = Game rounds (p:players)
 
-extractArgs :: [String] -> String -> [String]
-extractArgs args opt 
-  | (head args) == opt = takeWhile (\s -> not $ isPrefixOf "-" s) (tail args)
-  | length args == 0 = []
-  | otherwise = extractArgs (drop 1 args) opt
+addPlay :: Play -> Game -> Game
+-- what do we do when there are no rounds at this point?
+-- for now we just no-op
+addPlay play game@(Game [] players) = game
+addPlay play game@(Game ((Round [] _):rs) players) = game
+addPlay play (Game (round@(Round (trick:ts) hs):rs) players) = Game (newRound:rs) players
+  where newRound = Round (newTrick:ts) hs
+        newTrick = makePlay trick hand play
+        hand = currentHand (getPlayPlayer play) round

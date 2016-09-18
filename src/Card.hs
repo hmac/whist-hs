@@ -1,12 +1,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Card 
-  ( Suit
-  , Card (Card)
-  , toCard
-  , toSuit
-  , suit
-  ) where
+  -- ( Suit
+  -- , Card (Card)
+  -- , toCard
+  -- , toSuit
+  -- , suit
+     -- )
+       where
 
 import Control.Monad
 

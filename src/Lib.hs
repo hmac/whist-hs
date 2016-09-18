@@ -1,68 +1,135 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lib where
 
-import System.Environment 
+import System.Environment
 import Control.Monad
 import Data.List
+import Data.Aeson
 
-import Card (Card (Card), Suit, suit)
+-- import Card (Card (Card), Suit, suit)
+import Card
 
 
 type Trump = Suit
 
 -- TODO: embed the trump suit into Play?
-data Play = Play Card Player deriving (Show, Eq)
+data Play = Play
+  { getPlayCard :: Card
+  , getPlayPlayer :: Player
+  } deriving (Show, Eq)
 
-data Round = Round [Trick] deriving (Show)
+data Trick = Trick
+  { getTrickPlays :: [Play]
+  , getTrickTrump :: Trump
+  } deriving (Show, Eq, Ord)
 
-data Game = Game [Round] deriving (Show)
+data Round = Round
+  { getRoundTricks :: [Trick]
+  , getRoundHands :: [Hand]
+  } deriving (Show)
 
+data Game = Game
+  { rounds :: [Round]
+  , players :: [Player]
+  } deriving (Show)
 
 instance Ord Play where
   compare (Play c1 _) (Play c2 _) = compare c1 c2
 
-data Player = Player String deriving (Show, Eq)
+data Player = Player { getName :: String} deriving (Show, Eq)
 
 data Hand = Hand Player [Card] deriving (Show)
 
+instance ToJSON Suit where
+  toJSON Spade = "spade"
+  toJSON Heart = "heart"
+  toJSON Diamond = "diamond"
+  toJSON Club = "club"
 
--- TODO: make nicer
-cardFromPlay :: Play -> Card
-cardFromPlay (Play card player) = card
+instance ToJSON Number where
+  toJSON Two = "two"
+  toJSON Three = "three"
+  toJSON Four = "four"
+  toJSON Five = "five"
+  toJSON Six = "six"
+  toJSON Seven = "seven"
+  toJSON Eight = "eight"
+  toJSON Nine = "nine"
+  toJSON Ten = "ten"
+  toJSON Jack = "jack"
+  toJSON Queen = "queen"
+  toJSON King = "king"
 
--- TODO: remove this?
--- Returns the highest Play of a specific suit from a list of Plays
-highest :: [Play] -> Suit -> Maybe Play
-highest plays suit = case filterSuit suit plays of
-  [] -> Nothing
-  ps -> Just (maximum ps)
+instance ToJSON Card where
+  toJSON (Card suit number) = object [ "type" .= ("card" :: String)
+                                     , "suit" .= suit
+                                     , "number" .= number
+                                     ]
+
+instance ToJSON Player where
+  toJSON (Player name) = object [ "type" .= ("player" :: String)
+                                , "name" .= name
+                                ]
+
+instance ToJSON Hand where
+  toJSON (Hand player cards) = object [ "type" .= ("hand" :: String)
+                                      , "player" .= player
+                                      , "cards" .= cards
+                                      ]
+
+instance ToJSON Play where
+  toJSON (Play card player) = object [ "type" .= ("play" :: String)
+                                      , "card" .= card
+                                      , "player" .= player
+                                     ]
+
+instance ToJSON Trick where
+  toJSON (Trick plays trump) = object [ "type" .= ("trick" :: String)
+                                      , "trump" .= trump
+                                      , "plays" .= map toJSON plays
+                                      ]
+
+instance ToJSON Round where
+  toJSON (Round tricks hands) = object [ "type" .= ("round" :: String)
+                                       , "tricks" .= tricks
+                                       , "hands" .= hands
+                                       ]
+
+instance ToJSON Game where
+  toJSON (Game rounds players) = object [ "type" .= ("game" :: String)
+                                        , "rounds" .= rounds
+                                        , "players" .= players
+                                        ]
+
+-- the cards in a player's hand that they haven't played yet
+-- assumes the player is in the game
+currentHand :: Player -> Round -> Hand
+currentHand player round = Hand player cardsLeft
+  where cardsLeft = map getPlayCard . filter forPlayer $ plays
+        plays = concat . (map getTrickPlays)$ (getRoundTricks round)
+        forPlayer (Play _ p) = p == player
 
 -- Filters a set of Plays into only those that have the specified suit
 filterSuit :: Suit -> [Play] -> [Play]
 filterSuit suit ps = filter (\ (Play (Card s _) _) -> s == suit) ps
 
--- Determines if a Play is valid. 
+-- Determines if a Play is valid.
 -- Checks that the card is in the player's hand
 -- Checks that the player is following suit if they can
 -- Checks that the player is trumping if they have trumps and can't follow suit
 validPlay :: Play -> Hand -> Trump -> [Play] -> Bool
-validPlay (Play card _) (Hand _ hand) trumps cardsPlayed  
+validPlay (Play card _) (Hand _ hand) trumps cardsPlayed
   | not (any (elem card) [hand]) = False
   | and [ canFollowSuit, (not followingSuit) ] = False
   | and [ (not canFollowSuit), hasTrumps, (not trump) ] = False
   | otherwise = True
   where trump = (suit card) == trumps
         hasTrumps = any (\c -> (suit c) == trumps) hand
-        suitLed = suit (cardFromPlay $ head cardsPlayed)
+        suitLed = suit (getPlayCard $ head cardsPlayed)
         isLeading = null cardsPlayed
         followingSuit = isLeading || (suit card) == suitLed
         canFollowSuit = isLeading || any (\c -> (suit c) == suitLed) hand
-
--- A trick is a completed sequence of plays
--- It always has a winner
-data Trick = Trick
-  { plays :: [Play]
-  , trump :: Trump
-  } deriving (Show, Eq, Ord)
 
 -- Returns the play that wins the trick
 -- This should be either:
