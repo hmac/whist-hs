@@ -55,36 +55,13 @@ data Player = Player { getName :: String} deriving (Show, Eq)
 
 data Hand = Hand Player [Card] deriving (Show)
 
-instance ToJSON Suit where
-  toJSON Spade = "spade"
-  toJSON Heart = "heart"
-  toJSON Diamond = "diamond"
-  toJSON Club = "club"
-
-instance ToJSON Number where
-  toJSON Two = "two"
-  toJSON Three = "three"
-  toJSON Four = "four"
-  toJSON Five = "five"
-  toJSON Six = "six"
-  toJSON Seven = "seven"
-  toJSON Eight = "eight"
-  toJSON Nine = "nine"
-  toJSON Ten = "ten"
-  toJSON Jack = "jack"
-  toJSON Queen = "queen"
-  toJSON King = "king"
-
-instance ToJSON Card where
-  toJSON (Card suit number) = object [ "type" .= ("card" :: String)
-                                     , "suit" .= suit
-                                     , "number" .= number
-                                     ]
-
 instance ToJSON Player where
   toJSON (Player name) = object [ "type" .= ("player" :: String)
                                 , "name" .= name
                                 ]
+
+instance FromJSON Player where
+  parseJSON (Object o) = Player <$> o .: "name"
 
 instance ToJSON Hand where
   toJSON (Hand player cards) = object [ "type" .= ("hand" :: String)
@@ -97,6 +74,9 @@ instance ToJSON Play where
                                       , "card" .= card
                                       , "player" .= player
                                      ]
+
+instance FromJSON Play where
+  parseJSON (Object o) = Play <$> o .: "card" <*> o .: "player"
 
 instance ToJSON Trick where
   toJSON (Trick plays trump) = object [ "type" .= ("trick" :: String)

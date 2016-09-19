@@ -22,7 +22,6 @@ main = do
 -- passing player names as a parameter
 serve :: IORef Game -> IO ()
 serve game = scotty 3000 $ do
-  get "/card/:card" $ param "card" >>= (json. toCard)
   get "/game" $ liftIO (readIORef game) >>= json
   post "/game" $ do
     playerNames <- param "players" :: ActionM String
@@ -36,14 +35,9 @@ serve game = scotty 3000 $ do
     newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlayer player g), (addPlayer player g)))
     json newGame
   post "/play" $ do
-    cardString <- param "card"
-    playerString <- param "player"
-    let player = Player playerString
-    case toCard cardString of
-      Just card -> do
-        let play = Play card player
-        newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlay play g), (addPlay play g)))
-        json newGame
+    play <- jsonData
+    newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlay play g), (addPlay play g)))
+    json newGame
 
 addPlayer :: Player -> Game -> Game
 -- for now, we make a fake hand for the player
