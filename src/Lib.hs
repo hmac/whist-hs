@@ -32,6 +32,10 @@ data Game = Game
   , players :: [Player]
   } deriving (Show)
 
+data Player = Player { getName :: String} deriving (Show, Eq)
+
+data Hand = Hand Player [Card] deriving (Show)
+
 -- State changes:
 -- Create game with set number of players
 -- ROUND BEGIN
@@ -50,10 +54,6 @@ data Game = Game
 
 instance Ord Play where
   compare (Play c1 _) (Play c2 _) = compare c1 c2
-
-data Player = Player { getName :: String} deriving (Show, Eq)
-
-data Hand = Hand Player [Card] deriving (Show)
 
 instance ToJSON Player where
   toJSON (Player name) = object [ "type" .= ("player" :: String)
@@ -101,12 +101,12 @@ instance ToJSON Game where
 currentHand :: Player -> Round -> Hand
 currentHand player round = Hand player cardsLeft
   where cardsLeft = map getPlayCard . filter forPlayer $ plays
-        plays = concat . (map getTrickPlays)$ (getRoundTricks round)
+        plays = concatMap getTrickPlays $ getRoundTricks round
         forPlayer (Play _ p) = p == player
 
 -- Filters a set of Plays into only those that have the specified suit
 filterSuit :: Suit -> [Play] -> [Play]
-filterSuit suit ps = filter (\ (Play (Card s _) _) -> s == suit) ps
+filterSuit suit = filter (\ (Play (Card s _) _) -> s == suit)
 
 -- Determines if a Play is valid.
 -- Checks that the card is in the player's hand
@@ -115,15 +115,15 @@ filterSuit suit ps = filter (\ (Play (Card s _) _) -> s == suit) ps
 validPlay :: Play -> Hand -> Trump -> [Play] -> Bool
 validPlay (Play card _) (Hand _ hand) trumps cardsPlayed
   | not (any (elem card) [hand]) = False
-  | and [ canFollowSuit, (not followingSuit) ] = False
-  | and [ (not canFollowSuit), hasTrumps, (not trump) ] = False
+  | canFollowSuit && not followingSuit = False
+  | not canFollowSuit && hasTrumps && not trump = False
   | otherwise = True
-  where trump = (suit card) == trumps
-        hasTrumps = any (\c -> (suit c) == trumps) hand
+  where trump = suit card == trumps
+        hasTrumps = any (\c -> suit c == trumps) hand
         suitLed = suit (getPlayCard $ head cardsPlayed)
         isLeading = null cardsPlayed
-        followingSuit = isLeading || (suit card) == suitLed
-        canFollowSuit = isLeading || any (\c -> (suit c) == suitLed) hand
+        followingSuit = isLeading || suit card == suitLed
+        canFollowSuit = isLeading || any (\c -> suit c == suitLed) hand
 
 -- Returns the play that wins the trick
 -- This should be either:
@@ -152,6 +152,6 @@ makePlay :: Trick -> Hand -> Play -> Trick
 -- ensure play is valid
 makePlay trick (Hand p1 _) (Play _ p2) | p1 /= p2 = trick
 makePlay trick@(Trick plays trump) hand play@(Play _ player)
-  | elem player (map (\(Play _ p) -> p) plays) = trick
+  | player `elem` map (\(Play _ p) -> p) plays = trick
   | not (validPlay play hand trump plays) = trick
 makePlay (Trick plays trump) _ play = Trick (play:plays) trump
