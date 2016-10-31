@@ -4,6 +4,7 @@ module Main where
 
 import Lib
 import Card
+import Deck (deal, shuffledDeck)
 import System.Environment 
 import Data.List
 import Control.Monad
@@ -14,7 +15,7 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef, atomicModifyIORef')
 
 main :: IO ()
 main = do
-  game <- newIORef $ nullGame
+  game <- newIORef nullGame
   serve game
 
 -- API:
@@ -25,15 +26,17 @@ serve game = scotty 3000 $ do
   get "/game" $ liftIO (readIORef game) >>= json
   post "/game" $ do
     playerNames <- param "players" :: ActionM String
-    let players = words playerNames
-    newGame <- liftIO $ writeIORef game (Game [] [])
-    json players
+    let players = map Player $ words playerNames
+    updatedGame <- liftIO $ newGame players
+    savedGame <- liftIO $ writeIORef game updatedGame
+    json updatedGame
 
   post "/player" $ do
     name <- param "name"
     let player = Player name
     newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlayer player g), (addPlayer player g)))
     json newGame
+
   post "/play" $ do
     play <- jsonData
     newGame <- liftIO $ atomicModifyIORef' game (\g -> ((addPlay play g), (addPlay play g)))
@@ -47,22 +50,19 @@ addPlay :: Play -> Game -> Game
 -- what do we do when there are no rounds at this point?
 -- for now we just no-op
 addPlay play game@(Game [] players) = game
-addPlay play game@(Game ((Round [] _):rs) players) = game
-addPlay play (Game (round@(Round (trick:ts) hs):rs) players) = Game (newRound:rs) players
-  where newRound = Round (newTrick:ts) hs
+addPlay play game@(Game (Round [] _ _ : rs) players) = game
+addPlay play (Game (round@(Round (trick:ts) hs deck):rs) players) = Game (newRound:rs) players
+  where newRound = Round (newTrick:ts) hs deck
         newTrick = makePlay trick hand play
         hand = currentHand (getPlayPlayer play) round
 
 nullGame :: Game
 nullGame = Game [] []
 
-newGame :: [Player] -> Game
-newGame players = Game [round] players
-  where round = Round [] hands
-        cards = deal 7 (length players)
-        hands = [] -- TODO: implement this
-
-deal size number = deal_ size number [] shuffledDeck
-deal_ size 0 acc deck = acc
-deal_ size number acc deck = deal_ size (number - 1) ((take size deck):acc) (drop size deck)
+newGame :: [Player] -> IO Game
+newGame players = do
+  (deck, cardsForHands) <- deal 7 (length players) <$> shuffledDeck
+  let hands = zipWith Hand players cardsForHands
+  let round = Round [] hands deck
+  return $ Game [round] players
 

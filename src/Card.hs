@@ -77,5 +77,3 @@ instance FromJSON Number where
 
 instance FromJSON Card where
   parseJSON (Object o) = Card <$> o .: "suit" <*> o .: "number"
-
-shuffledDeck = "?"

@@ -8,6 +8,7 @@ import Data.List
 import Data.Aeson
 
 import Card
+import Deck
 
 type Trump = Suit
 
@@ -25,6 +26,7 @@ data Trick = Trick
 data Round = Round
   { getRoundTricks :: [Trick]
   , getRoundHands :: [Hand]
+  , getRoundDeck :: Deck
   } deriving (Show)
 
 data Game = Game
@@ -85,10 +87,11 @@ instance ToJSON Trick where
                                       ]
 
 instance ToJSON Round where
-  toJSON (Round tricks hands) = object [ "type" .= ("round" :: String)
-                                       , "tricks" .= tricks
-                                       , "hands" .= hands
-                                       ]
+  toJSON (Round tricks hands deck) = object [ "type" .= ("round" :: String)
+                                            , "tricks" .= tricks
+                                            , "hands" .= hands
+                                            , "deck" .= deck
+                                            ]
 
 instance ToJSON Game where
   toJSON (Game rounds players) = object [ "type" .= ("game" :: String)
