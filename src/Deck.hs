@@ -9,11 +9,6 @@ import Data.Aeson
 data Deck = Deck [Card]
   deriving Show
 
-instance ToJSON Deck where
-  toJSON (Deck cards) = object [ "type" .= ("deck" :: String)
-                               , "cards" .= cards
-                               ]
-
 numbers = [
   Two,
   Three,

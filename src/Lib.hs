@@ -90,7 +90,6 @@ instance ToJSON Round where
   toJSON (Round tricks hands deck) = object [ "type" .= ("round" :: String)
                                             , "tricks" .= tricks
                                             , "hands" .= hands
-                                            , "deck" .= deck
                                             ]
 
 instance ToJSON Game where
